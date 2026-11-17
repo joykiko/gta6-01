@@ -1,134 +1,16 @@
-// Boot and the one loop: input is read every frame, the world advances in fixed 1/60 s steps
-// (several in a slow frame, none in a fast one), and the renderer paints what is there. The game
-// moves between four screens: title, play, paused and game over.
-//
-// ?seed=N fixes the falling pattern. ?shot=start|play|end (with &seed=N) stages that scene
-// instead of running the loop, paints it twice and sets window.__shotReady for a screenshot.
-import { BEST_KEY, LIVES, STEP } from './config.js';
+import { createWorld } from './world.js';
 import { createRandom } from './random.js';
-import { createWorld, EVENT_HIT, EVENT_OVER } from './world.js';
-import { ACTION_CONFIRM, ACTION_PAUSE, createInput } from './input.js';
-import { createRenderer, SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
-import { stageShot } from './shots.js';
+import { createInput } from './input.js';
+import { createRenderer } from './render.js';
+import { createAudio } from './audio.js';
 
-/** The longest frame the loop catches up on; a longer stall (a hidden tab) is dropped, not replayed. */
-const MAX_FRAME = 0.25;
-
-const params = new URLSearchParams(window.location.search);
-const shot = params.get('shot');
-const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
-const seed = Number.isInteger(seedParam) ? seedParam : Math.floor(Math.random() * 4294967296);
-
-const canvas = document.getElementById('game');
-const status = document.getElementById('status');
-const world = createWorld(createRandom(seed));
-const renderer = createRenderer(canvas);
-
-function readBest() {
-  try {
-    return Number.parseInt(window.localStorage.getItem(BEST_KEY) ?? '0', 10) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveBest(value) {
-  try {
-    window.localStorage.setItem(BEST_KEY, String(value));
-  } catch {
-    // Storage can be off (private windows): the best score then lasts this visit only.
-  }
-}
-
-function runShot(name) {
-  const scene = stageShot(name, world);
-  let painted = 0;
-  function paint() {
-    renderer.draw(world.state, scene.screen, scene.best);
-    painted += 1;
-    if (painted < 2) requestAnimationFrame(paint);
-    else window.__shotReady = true;
-  }
-  requestAnimationFrame(paint);
-}
-
-function runGame() {
-  const input = createInput(canvas);
-  let screen = SCREEN_TITLE;
-  let best = readBest();
-  let accumulator = 0;
-  let last = performance.now();
-
-  // Screen readers (and anyone watching the page's text) hear the screen changes and each hit.
-  function announce(message) {
-    status.textContent = message;
-  }
-
-  function startGame() {
-    world.reset();
-    accumulator = 0;
-    screen = SCREEN_PLAY;
-    announce(`Playing. ${LIVES} lives.`);
-  }
-
-  function endGame() {
-    screen = SCREEN_OVER;
-    if (world.state.score > best) {
-      best = world.state.score;
-      saveBest(best);
-    }
-    announce(`Game over. Score ${world.state.score}. Best ${best}.`);
-  }
-
-  function handleActions() {
-    const actions = input.takeActions();
-    if (actions & ACTION_CONFIRM && (screen === SCREEN_TITLE || screen === SCREEN_OVER)) startGame();
-    else if (actions & ACTION_PAUSE && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    } else if (actions & (ACTION_PAUSE | ACTION_CONFIRM) && screen === SCREEN_PAUSED) {
-      screen = SCREEN_PLAY;
-      announce('Playing.');
-    }
-  }
-
-  function step() {
-    if (screen === SCREEN_TITLE) {
-      world.step(STEP, 0, true);
-      return;
-    }
-    const events = world.step(STEP, input.direction(), false);
-    if (events & EVENT_OVER) endGame();
-    else if (events & EVENT_HIT) announce(world.state.lives === 1 ? 'Hit. 1 life left.' : `Hit. ${world.state.lives} lives left.`);
-  }
-
-  function frame(now) {
-    requestAnimationFrame(frame);
-    accumulator += Math.min((now - last) / 1000, MAX_FRAME);
-    last = now;
-    handleActions();
-    if (screen === SCREEN_TITLE || screen === SCREEN_PLAY) {
-      while (accumulator >= STEP && (screen === SCREEN_TITLE || screen === SCREEN_PLAY)) {
-        step();
-        accumulator -= STEP;
-      }
-    } else {
-      accumulator = 0;
-    }
-    renderer.draw(world.state, screen, best);
-  }
-
-  // Leaving the tab pauses a running game rather than letting blocks fall unseen.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    }
-  });
-
-  announce('Block Dodger. Press Space or click to start.');
-  requestAnimationFrame(frame);
-}
-
-if (shot) runShot(shot);
-else runGame();
+const canvas=document.getElementById('game');
+const rng=createRandom(246813579),world=createWorld(rng),input=createInput(canvas),renderer=createRenderer(canvas),audio=createAudio();
+const params=new URLSearchParams(location.search);
+if(params.get('shot')==='play'){world.beginStory();world.state.missionStart=false;world.startMission();world.state.player.x=world.state.mission.marker.x-115;world.state.player.y=world.state.mission.marker.y+25;world.state.player.inCar=world.state.cars.find(c=>!c.police)||null;if(world.state.player.inCar){world.state.player.inCar.x=world.state.player.x;world.state.player.inCar.y=world.state.player.y;world.state.player.inCar.speed=94;}}
+if(params.get('shot')==='end'){world.beginStory();world.state.missionStart=false;world.state.mission.index=world.jobs.length;world.state.mission.done=true;world.state.mission.active=false;world.state.mission.title='STORY COMPLETE';world.state.mission.objective='San Verano is yours. Free roam is open.';world.state.mission.marker={...world.jobs.at(-1).marker};world.state.player.x=world.state.mission.marker.x-72;world.state.player.y=world.state.mission.marker.y+22;}
+if(params.get('shot')==='chase'){world.beginStory();world.state.missionStart=false;world.startMission();world.state.player.x=world.state.mission.marker.x;world.state.player.y=world.state.mission.marker.y;world.state.wanted=3;world.state.player.inCar=world.state.cars.find(c=>!c.police)||null;if(world.state.player.inCar){world.state.player.inCar.x=world.state.player.x;world.state.player.inCar.y=world.state.player.y;world.state.player.inCar.speed=170;}for(let i=0;i<3;i++)world.state.cars.push({x:world.state.player.x-180-i*72,y:world.state.player.y+90,angle:-.5,speed:120,police:true,health:100,ai:false,flash:i,axis:'h',dir:1,wait:0});}
+try{const saved=localStorage.getItem('san-verano.save.v1');if(saved)world.state.hasSave=true;}catch{}
+let last=performance.now(),acc=0,started=false;
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.05);last=now;const a=input.read();if(world.state.screen==='title'&&a.confirm){audio.boot();if(world.state.hasSave){try{world.loadSave(JSON.parse(localStorage.getItem('san-verano.save.v1')));started=true;}catch{world.beginStory();started=true;}}else{world.beginStory();started=true;}}if(world.state.screen==='play'){acc+=dt;while(acc>1/60){const rect=canvas.getBoundingClientRect();a.worldX=world.state.camera.x+(a.mouseX-.5)*rect.width*.85;a.worldY=world.state.camera.y+(a.mouseY-.5)*rect.height*.85;const oldWanted=world.state.wanted;world.update(1/60,a);if(a.toggleMute){world.state.muted=!world.state.muted;audio.setMuted(world.state.muted);}if(a.shoot)audio.event('gun');if(world.state.wanted>oldWanted)audio.event('hit');if(world.state.mission.messageTime>0&&world.state.mission.messageTime>.99)audio.event('mission');acc-=1/60;}}else world.update(dt,a);audio.update(world.state.player.inCar,world.state.wanted);renderer.draw(world.state);}
+requestAnimationFrame(frame);

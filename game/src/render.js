@@ -1,141 +1,29 @@
-// Drawing only: the world's state and the current screen in, pixels out. The 1280x720 playfield
-// is scaled to fit the window and centred, the margin filled with the backdrop colour. Flat
-// rectangles and circles, canvas text for the HUD and the panels. Text that holds a number is
-// rebuilt only when the number changes, so a frame allocates nothing.
-import { FIELD, FONT, LIVES, PALETTE } from './config.js';
-import { KIND_COIN } from './world.js';
+import { WORLD_W, WORLD_H, ROAD, TILE, ROAD_X, ROAD_Y, COLORS, FONT } from './config.js';
+import { createHud } from './hud.js';
 
-export const SCREEN_TITLE = 'title';
-export const SCREEN_PLAY = 'play';
-export const SCREEN_PAUSED = 'paused';
-export const SCREEN_OVER = 'over';
-
-/** The panel's width; its height grows with its lines: room for the title, the lines and the prompt. */
-const PANEL = { width: 600, top: 134, line: 34, bottom: 70 };
-const LIFE_SIZE = 20;
-const LIFE_GAP = 8;
-
-function cachedLabel(prefix) {
-  let value = -1;
-  let text = '';
-  return function label(next) {
-    if (next !== value) {
-      value = next;
-      text = prefix + next;
-    }
-    return text;
-  };
-}
-
-export function createRenderer(canvas) {
-  const context = canvas.getContext('2d');
-  const view = { scale: 1, x: 0, y: 0 };
-  const scoreLabel = cachedLabel('Score ');
-  const levelLabel = cachedLabel('Level ');
-  const finalLabel = cachedLabel('Score ');
-  const bestLabel = cachedLabel('Best ');
-
-  function resize() {
-    const ratio = window.devicePixelRatio || 1;
-    const width = Math.round(window.innerWidth * ratio);
-    const height = Math.round(window.innerHeight * ratio);
-    canvas.width = width;
-    canvas.height = height;
-    view.scale = Math.min(width / FIELD.width, height / FIELD.height);
-    view.x = (width - FIELD.width * view.scale) / 2;
-    view.y = (height - FIELD.height * view.scale) / 2;
+export function createRenderer(canvas){
+  const ctx=canvas.getContext('2d'),hud=createHud();let vw=0,vh=0,dpr=1;
+  function resize(){dpr=window.devicePixelRatio||1;vw=window.innerWidth;vh=window.innerHeight;canvas.width=Math.floor(vw*dpr);canvas.height=Math.floor(vh*dpr);canvas.style.width=`${vw}px`;canvas.style.height=`${vh}px`;}
+  function drawWorld(s){const p=s.player;ctx.fillStyle=COLORS.grass;ctx.fillRect(0,0,WORLD_W,WORLD_H);ctx.fillStyle=COLORS.water;ctx.fillRect(0,WORLD_H-52,WORLD_W,52);ctx.fillStyle=COLORS.sand;ctx.fillRect(0,WORLD_H-94,WORLD_W,42);
+    // Crosshatched city blocks with paved street grid and painted lane dashes.
+    ctx.fillStyle=COLORS.asphalt;for(let c=0;c<15;c++)ctx.fillRect(c*TILE,0,ROAD,WORLD_H);for(let r=0;r<12;r++)ctx.fillRect(0,r*TILE,WORLD_W,ROAD);
+    ctx.strokeStyle='rgba(238,218,155,.5)';ctx.lineWidth=2;ctx.setLineDash([16,18]);for(let c=0;c<15;c++){ctx.beginPath();ctx.moveTo(c*TILE+ROAD/2,0);ctx.lineTo(c*TILE+ROAD/2,WORLD_H);ctx.stroke();}for(let r=0;r<12;r++){ctx.beginPath();ctx.moveTo(0,r*TILE+ROAD/2);ctx.lineTo(WORLD_W,r*TILE+ROAD/2);ctx.stroke();}ctx.setLineDash([]);
+    for(const b of s.buildings){ctx.fillStyle='#c8b997';ctx.fillRect(b.x-5,b.y-5,b.w+10,b.h+10);const hues=['#d8b998','#c8c3aa','#bb9985','#d2c9ad'];ctx.fillStyle=hues[b.hue];ctx.fillRect(b.x,b.y,b.w,b.h);ctx.fillStyle='rgba(72,103,103,.5)';for(let wx=b.x+14;wx<b.x+b.w-12;wx+=34)for(let wy=b.y+15;wy<b.y+b.h-9;wy+=31)ctx.fillRect(wx,wy,13,11);ctx.fillStyle='rgba(73,67,54,.32)';ctx.fillRect(b.x+b.w*.46,b.y+b.h-27,15,27);if(b.label){ctx.fillStyle='#425252';ctx.fillRect(b.x+8,b.y+7,Math.min(70,b.w-16),17);ctx.font=`bold 8px ${FONT}`;ctx.fillStyle='#f3e6bf';ctx.fillText(b.label,b.x+12,b.y+19);}}
+    for(const prop of s.props){if(prop.type==='palm'){ctx.fillStyle='#624b3d';ctx.fillRect(prop.x-3,prop.y-13,6,20);ctx.fillStyle='#477c63';for(let i=0;i<6;i++){ctx.beginPath();ctx.ellipse(prop.x+Math.cos(i*Math.PI/3)*12,prop.y-17+Math.sin(i*Math.PI/3)*8,13,4,i*Math.PI/3,0,Math.PI*2);ctx.fill();}}else if(prop.type==='lamp'){ctx.strokeStyle='#52625e';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(prop.x,prop.y-2);ctx.lineTo(prop.x,prop.y-18);ctx.lineTo(prop.x+9,prop.y-18);ctx.stroke();ctx.fillStyle='#f3df9a';ctx.beginPath();ctx.arc(prop.x+9,prop.y-18,3,0,Math.PI*2);ctx.fill();}else{ctx.fillStyle='#557d61';ctx.beginPath();ctx.arc(prop.x,prop.y,8,0,Math.PI*2);ctx.fill();}}
+    for(const m of s.marks){ctx.save();ctx.translate(m.x,m.y);ctx.rotate(m.a);ctx.fillStyle=`rgba(32,33,29,${Math.min(.25,m.life*.03)})`;ctx.fillRect(-16,-5,32,3);ctx.restore();}
+    if(s.mission.marker){const pulse=8+Math.sin(s.clock*4)*3;ctx.strokeStyle='#f2c95e';ctx.lineWidth=3;ctx.beginPath();ctx.arc(s.mission.marker.x,s.mission.marker.y,pulse,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(242,201,94,.18)';ctx.beginPath();ctx.arc(s.mission.marker.x,s.mission.marker.y,28,0,Math.PI*2);ctx.fill();}
+    for(const c of s.cars)drawCar(c);
+    for(const ped of s.peds)if(ped.alive){ctx.save();ctx.translate(ped.x,ped.y);ctx.rotate(ped.angle);ctx.fillStyle='rgba(31,38,34,.25)';ctx.beginPath();ctx.ellipse(0,5,7,4,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=ped.color;ctx.beginPath();ctx.ellipse(0,0,5,8,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ecd3af';ctx.beginPath();ctx.arc(0,-6,4,0,Math.PI*2);ctx.fill();ctx.restore();}
+    for(const e of s.mission.enemies)if(e.alive){ctx.save();ctx.translate(e.x,e.y);ctx.rotate(e.angle);ctx.fillStyle='#b3483f';ctx.fillRect(-7,-9,14,18);ctx.fillStyle='#ecd2b0';ctx.beginPath();ctx.arc(0,-9,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#252828';ctx.fillRect(3,-2,11,3);ctx.restore();ctx.fillStyle='#262e2e';ctx.fillRect(e.x-14,e.y-19,28,3);ctx.fillStyle='#da6a54';ctx.fillRect(e.x-14,e.y-19,28*e.health/50,3);}
+    for(const b of s.bullets){ctx.fillStyle=b.owner==='enemy'?'#ff8a64':'#ffe19a';ctx.beginPath();ctx.arc(b.x,b.y,3,0,Math.PI*2);ctx.fill();}
+    for(const q of s.particles){ctx.globalAlpha=Math.min(1,q.life*5);ctx.fillStyle=q.color;ctx.beginPath();ctx.arc(q.x,q.y,3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+    if(p.inCar===null){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.face);ctx.fillStyle='#263738';ctx.beginPath();ctx.ellipse(0,4,10,8,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d67859';ctx.beginPath();ctx.ellipse(0,0,8,10,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f0cfab';ctx.beginPath();ctx.arc(3,-5,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#333b37';ctx.fillRect(7,-2,11,3);ctx.restore();}
   }
-
-  const fonts = new Map();
-  function text(value, x, y, size, color, align) {
-    if (!fonts.has(size)) fonts.set(size, `${size}px ${FONT}`);
-    context.font = fonts.get(size);
-    context.fillStyle = color;
-    context.textAlign = align;
-    context.fillText(value, x, y);
+  function drawCar(c){ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.angle);ctx.fillStyle='rgba(25,32,30,.28)';ctx.fillRect(-20,-11,45,25);ctx.fillStyle=c.color;ctx.fillRect(-23,-12,46,24);ctx.fillStyle='#536b6a';ctx.fillRect(-9,-9,18,18);ctx.fillStyle='#d8d0b5';ctx.fillRect(-20,-10,8,20);ctx.fillStyle='#333b3c';ctx.fillRect(-15,-14,8,3);ctx.fillRect(7,-14,8,3);ctx.fillRect(-15,11,8,3);ctx.fillRect(7,11,8,3);if(c.police){ctx.fillStyle=c.flash%1<.5?'#dc5650':'#568db2';ctx.fillRect(-5,-15,10,4);ctx.fillStyle='#283638';ctx.fillRect(-9,-4,18,8);}ctx.restore();}
+  function shade(){const phase=(Math.sin((Date.now()/1000/210)*Math.PI*2-.8)+1)/2;const alpha=.24*(1-phase);ctx.fillStyle=`rgba(20,33,53,${alpha})`;ctx.fillRect(0,0,WORLD_W,WORLD_H);if(phase>.72){ctx.fillStyle=`rgba(235,155,91,${(phase-.72)*.35})`;ctx.fillRect(0,0,WORLD_W,WORLD_H);}}
+  function overlay(title,lines,accent='#f2c96d'){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='rgba(17,27,29,.76)';ctx.fillRect(0,0,vw,vh);const bw=Math.min(660,vw-40),bh=340,x=(vw-bw)/2,y=(vh-bh)/2;ctx.fillStyle='rgba(30,44,44,.96)';ctx.fillRect(x,y,bw,bh);ctx.strokeStyle='rgba(241,215,161,.5)';ctx.strokeRect(x+.5,y+.5,bw-1,bh-1);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`bold 13px ${FONT}`;ctx.fillStyle=accent;ctx.fillText('SAN VERANO   /   COASTAL DISTRICT',vw/2,y+34);ctx.font=`bold ${Math.min(42,vw/12)}px ${FONT}`;ctx.fillStyle='#f5efdc';ctx.fillText(title,vw/2,y+91);ctx.font=`15px ${FONT}`;for(let i=0;i<lines.length;i++){ctx.fillStyle=i===lines.length-1?accent:'#c6d0c4';ctx.fillText(lines[i],vw/2,y+150+i*27);} }
+  function draw(state){if(vw===0)resize();const cam=state.camera,scale=Math.min(vw/1060,vh/650),viewW=vw/scale,viewH=vh/scale;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#202c2d';ctx.fillRect(0,0,vw,vh);ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*(vw-scale*viewW)/2,dpr*(vh-scale*viewH)/2);let cx=Math.max(viewW/2,Math.min(WORLD_W-viewW/2,cam.x)),cy=Math.max(viewH/2,Math.min(WORLD_H-viewH/2,cam.y));ctx.translate(viewW/2-cx,viewH/2-cy);if(state.shake>0)ctx.translate((Math.random()-.5)*state.shake,(Math.random()-.5)*state.shake);drawWorld(state);shade();ctx.setTransform(dpr,0,0,dpr,0,0);hud.draw(ctx,state,vw,vh);
+    if(state.screen==='title'){overlay('LOW TIDE RUNNER',['Rio Calles carries one last package across San Verano.','A favor becomes a chase, then a way out.',state.hasSave?'CONTINUE  /  PRESS ENTER OR CLICK':'WASD MOVE   /   CLICK OR ENTER TO BEGIN'], '#e7bf69');}else if(state.screen==='pause')overlay('PAUSED',['The boulevard can wait.','Press P or Enter to return.'],'#95c4aa');else if(state.screen==='busted')overlay('BUSTED',['The patrol brought Rio in. $250 held for release.','Press Enter to leave the station.'],'#df7963');else if(state.screen==='wasted')overlay('WASTED',['The clinic patched Rio up.','Press Enter to continue.'],'#df7963');
   }
-
-  function drawField(state) {
-    context.fillStyle = PALETTE.sky;
-    context.fillRect(0, 0, FIELD.width, FIELD.height);
-    context.fillStyle = PALETTE.ground;
-    context.fillRect(0, FIELD.groundY, FIELD.width, FIELD.height - FIELD.groundY);
-
-    const items = state.items;
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      if (!item.active) continue;
-      if (item.kind === KIND_COIN) {
-        context.fillStyle = PALETTE.coin;
-        context.beginPath();
-        context.arc(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, 0, Math.PI * 2);
-        context.fill();
-      } else {
-        context.fillStyle = PALETTE.block;
-        context.fillRect(item.x, item.y, item.width, item.height);
-      }
-    }
-
-    const player = state.player;
-    // Blink while invulnerable after a hit: hidden on every other tenth of a second.
-    if (player.invulnerable === 0 || Math.floor(player.invulnerable * 10) % 2 === 1) {
-      context.fillStyle = PALETTE.player;
-      context.fillRect(player.x, player.y, player.width, player.height);
-    }
-  }
-
-  function drawHud(state) {
-    context.textBaseline = 'top';
-    text(scoreLabel(state.score), 24, 20, 28, PALETTE.text, 'left');
-    text(levelLabel(state.level), FIELD.width / 2, 20, 28, PALETTE.text, 'center');
-    const firstLife = FIELD.width - 24 - LIVES * (LIFE_SIZE + LIFE_GAP) + LIFE_GAP;
-    text('Lives', firstLife - 12, 20, 28, PALETTE.text, 'right');
-    for (let life = 0; life < LIVES; life += 1) {
-      context.fillStyle = life < state.lives ? PALETTE.player : PALETTE.ground;
-      context.fillRect(firstLife + life * (LIFE_SIZE + LIFE_GAP), 24, LIFE_SIZE, LIFE_SIZE);
-    }
-  }
-
-  function drawPanel(title, lines, prompt) {
-    const height = PANEL.top + lines.length * PANEL.line + PANEL.bottom;
-    const x = (FIELD.width - PANEL.width) / 2;
-    const y = (FIELD.height - height) / 2;
-    context.fillStyle = PALETTE.panel;
-    context.fillRect(x, y, PANEL.width, height);
-    context.textBaseline = 'alphabetic';
-    text(title, FIELD.width / 2, y + 78, 48, PALETTE.text, 'center');
-    for (let index = 0; index < lines.length; index += 1) {
-      text(lines[index], FIELD.width / 2, y + PANEL.top + index * PANEL.line, 22, PALETTE.muted, 'center');
-    }
-    text(prompt, FIELD.width / 2, y + height - 40, 24, PALETTE.coin, 'center');
-  }
-
-  const TITLE_LINES = ['Dodge the red blocks. Catch the gold coins.', 'Move with ← → or A D.  Pause with P.', ''];
-  const PAUSED_LINES = ['The blocks will wait for you.'];
-  const OVER_LINES = ['', ''];
-
-  /** Paint one frame: the field, then the HUD or a panel for the screen the game is on. */
-  function draw(state, screen, best) {
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.fillStyle = PALETTE.backdrop;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
-    drawField(state);
-    if (screen === SCREEN_TITLE) {
-      TITLE_LINES[2] = bestLabel(best);
-      drawPanel('Block Dodger', TITLE_LINES, 'Press Space or click to start');
-      return;
-    }
-    drawHud(state);
-    if (screen === SCREEN_PAUSED) drawPanel('Paused', PAUSED_LINES, 'Press P to resume');
-    else if (screen === SCREEN_OVER) {
-      OVER_LINES[0] = finalLabel(state.score);
-      OVER_LINES[1] = bestLabel(best);
-      drawPanel('Game over', OVER_LINES, 'Press Space or click to play again');
-    }
-  }
-
-  resize();
-  window.addEventListener('resize', resize);
-  return { draw };
+  resize();window.addEventListener('resize',resize);return {draw};
 }
