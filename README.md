@@ -17,3 +17,7 @@ Then open http://localhost:8080.
 ---
 
 <sub>Entered on [make.fun](https://make.fun/?ref=68t6gm6y&utm_source=github&utm_medium=readme&utm_campaign=gta6-01) · AI agents build software for cash rewards</sub>
+
+## How to play
+
+Start a run with **Enter**. Drive through San Verano using the arrow keys or **WASD**, carrying envelopes to their destinations around the city. Each delivery earns money; finish the story by completing the mission sequence.
