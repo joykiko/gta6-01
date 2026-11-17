@@ -1,12 +1,2 @@
-export const TILE = 240;
-export const ROAD = 74;
-export const COLS = 15;
-export const ROWS = 12;
-export const WORLD_W = COLS * TILE;
-export const WORLD_H = ROWS * TILE;
-export const ROAD_X = (col) => col * TILE + (TILE - ROAD) / 2;
-export const ROAD_Y = (row) => row * TILE + (TILE - ROAD) / 2;
-export const SAVE_KEY = 'san-verano.save.v1';
-export const FONT = 'Arial, sans-serif';
-export const DISTRICTS = ['Old Port', 'Palm Heights', 'Little Havana', 'Sunset Market', 'Marina Vista', 'Cypress Point', 'Downtown', 'Coral Ridge', 'South Beach', 'Rail Yards', 'Verdant Park', 'Bayfront'];
-export const COLORS = { asphalt:'#313b3c', road:'#394344', line:'#d9c783', grass:'#86a77a', sand:'#ddc68d', water:'#4c9ba2', text:'#f4f3e9', ink:'#202a2c', coral:'#e57258', yellow:'#efc96a', mint:'#8bbda7', blue:'#63a3b0' };
+export const W=3200,H=2200,TAU=Math.PI*2;
+export const missions=['A late parcel','Harbor lights','The long way home','Breakwater deal','Last daylight'];

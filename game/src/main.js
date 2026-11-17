@@ -1,16 +1,2 @@
-import { createWorld } from './world.js';
-import { createRandom } from './random.js';
-import { createInput } from './input.js';
-import { createRenderer } from './render.js';
-import { createAudio } from './audio.js';
-
-const canvas=document.getElementById('game');
-const rng=createRandom(246813579),world=createWorld(rng),input=createInput(canvas),renderer=createRenderer(canvas),audio=createAudio();
-const params=new URLSearchParams(location.search);
-if(params.get('shot')==='play'){world.beginStory();world.state.missionStart=false;world.startMission();world.state.player.x=world.state.mission.marker.x-115;world.state.player.y=world.state.mission.marker.y+25;world.state.player.inCar=world.state.cars.find(c=>!c.police)||null;if(world.state.player.inCar){world.state.player.inCar.x=world.state.player.x;world.state.player.inCar.y=world.state.player.y;world.state.player.inCar.speed=94;}}
-if(params.get('shot')==='end'){world.beginStory();world.state.missionStart=false;world.state.mission.index=world.jobs.length;world.state.mission.done=true;world.state.mission.active=false;world.state.mission.title='STORY COMPLETE';world.state.mission.objective='San Verano is yours. Free roam is open.';world.state.mission.marker={...world.jobs.at(-1).marker};world.state.player.x=world.state.mission.marker.x-72;world.state.player.y=world.state.mission.marker.y+22;}
-if(params.get('shot')==='chase'){world.beginStory();world.state.missionStart=false;world.startMission();world.state.player.x=world.state.mission.marker.x;world.state.player.y=world.state.mission.marker.y;world.state.wanted=3;world.state.player.inCar=world.state.cars.find(c=>!c.police)||null;if(world.state.player.inCar){world.state.player.inCar.x=world.state.player.x;world.state.player.inCar.y=world.state.player.y;world.state.player.inCar.speed=170;}for(let i=0;i<3;i++)world.state.cars.push({x:world.state.player.x-180-i*72,y:world.state.player.y+90,angle:-.5,speed:120,police:true,health:100,ai:false,flash:i,axis:'h',dir:1,wait:0});}
-try{const saved=localStorage.getItem('san-verano.save.v1');if(saved)world.state.hasSave=true;}catch{}
-let last=performance.now(),acc=0,started=false;
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.05);last=now;const a=input.read();if(world.state.screen==='title'&&a.confirm){audio.boot();if(world.state.hasSave){try{world.loadSave(JSON.parse(localStorage.getItem('san-verano.save.v1')));started=true;}catch{world.beginStory();started=true;}}else{world.beginStory();started=true;}}if(world.state.screen==='play'){acc+=dt;while(acc>1/60){const rect=canvas.getBoundingClientRect();a.worldX=world.state.camera.x+(a.mouseX-.5)*rect.width*.85;a.worldY=world.state.camera.y+(a.mouseY-.5)*rect.height*.85;const oldWanted=world.state.wanted;world.update(1/60,a);if(a.toggleMute){world.state.muted=!world.state.muted;audio.setMuted(world.state.muted);}if(a.shoot)audio.event('gun');if(world.state.wanted>oldWanted)audio.event('hit');if(world.state.mission.messageTime>0&&world.state.mission.messageTime>.99)audio.event('mission');acc-=1/60;}}else world.update(dt,a);audio.update(world.state.player.inCar,world.state.wanted);renderer.draw(world.state);}
-requestAnimationFrame(frame);
+import {boot} from './game.js';
+boot();
